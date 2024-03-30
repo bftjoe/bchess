@@ -1,5 +1,4 @@
-#ifndef MOVEPICKER_H_INCLUDED
-#define MOVEPICKER_H_INCLUDED
+#pragma once
 
 #include <cstdint>
 #include <algorithm>
@@ -261,4 +260,3 @@ MoveScore MovePicker::scoreQuiet(Move m) {
 
 } /* namespace Belette */
 
-#endif /* MOVEPICKER_H_INCLUDED */
