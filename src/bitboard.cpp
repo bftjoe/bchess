@@ -1,7 +1,7 @@
 #include "bitboard.h"
 #include <iostream>
 
-namespace Belette {
+namespace bchess {
 
 Bitboard PAWN_ATTACK[NB_SIDE][NB_SQUARE];
 Bitboard KNIGHT_MOVE[NB_SQUARE];
@@ -123,4 +123,4 @@ void init()
 } // namespace Bitboard
 
 
-} /* namespace Belette */
+} /* namespace bchess */

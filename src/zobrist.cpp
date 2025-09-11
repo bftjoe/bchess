@@ -3,7 +3,7 @@
 #include "zobrist.h"
 
 
-namespace Belette {
+namespace bchess {
 
 namespace Zobrist {
     Bitboard keys[NB_PIECE][NB_SQUARE];
@@ -40,4 +40,4 @@ namespace Zobrist {
     }
 }
 
-} /* namespace Belette */
+} /* namespace bchess */

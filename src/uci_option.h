@@ -8,7 +8,7 @@
 #include <functional>
 #include "utils.h"
 
-namespace Belette {
+namespace bchess {
 
 class UciOption {
 public:
@@ -56,5 +56,5 @@ private:
     OnUpdate onUpdate;
 };
 
-} /* namespace Belette */
+} /* namespace bchess */
 

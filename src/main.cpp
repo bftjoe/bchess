@@ -8,7 +8,7 @@
 #include "perft.h"
 #include "zobrist.h"
 
-using namespace Belette;
+using namespace bchess;
 
 int main(int argc, char* argv[])
 {

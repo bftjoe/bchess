@@ -10,7 +10,7 @@
 #include "evaluate.h"
 #include "tt.h"
 
-namespace Belette {
+namespace bchess {
 
 constexpr MoveScore PieceThreatenedValue[NB_PIECE_TYPE] = {
     0, 0, 15000, 15000, 25000, 50000, 0
@@ -258,5 +258,5 @@ MoveScore MovePicker::scoreQuiet(Move m) {
     return score;
 }
 
-} /* namespace Belette */
+} /* namespace bchess */
 

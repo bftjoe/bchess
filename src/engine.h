@@ -10,7 +10,7 @@
 #include "tt.h"
 #include "utils.h"
 
-namespace Belette {
+namespace bchess {
 
 struct SearchLimits {
     TimeMs timeLeft[NB_SIDE] = {0};
@@ -146,5 +146,5 @@ private:
     template<Side Me, NodeType NT> Score qSearch(Score alpha, Score beta, int depth, int ply);
 };
 
-} /* namespace Belette */
+} /* namespace bchess */
 

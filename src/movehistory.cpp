@@ -1,7 +1,7 @@
 #include "movehistory.h"
 
-namespace Belette {
+namespace bchess {
 
 
 
-} /* namespace Belette */
+} /* namespace bchess */

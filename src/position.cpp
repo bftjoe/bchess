@@ -4,7 +4,7 @@
 #include "uci.h"
 #include "zobrist.h"
 
-namespace Belette {
+namespace bchess {
 
 const std::string PIECE_TO_CHAR(" PNBRQK  pnbrqk");
 
@@ -773,4 +773,4 @@ bool Position::see(Move move, int threshold) const {
     return (bool)result;
 }
 
-} /* namespace Belette */
+} /* namespace bchess */

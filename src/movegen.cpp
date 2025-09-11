@@ -2,7 +2,7 @@
 #include "movegen.h"
 #include "uci.h"
 
-namespace Belette {
+namespace bchess {
 
 std::ostream& operator<<(std::ostream& os, const MoveList& moves) {
     bool first = true;
@@ -16,4 +16,4 @@ std::ostream& operator<<(std::ostream& os, const MoveList& moves) {
     return os;
 }
 
-} /* namespace Belette*/
+} /* namespace bchess*/

@@ -9,7 +9,7 @@
 #include "movepicker.h"
 #include "bench.h"
 
-namespace Belette {
+namespace bchess {
 
 Console console;
 
@@ -29,7 +29,7 @@ void Console::setLogFile(const std::string &filename) {
 }
 
 Uci::Uci()  {
-    console << "Belette " << VERSION << " by Vincent Bab" << std::endl;
+    console << "bchess " << VERSION << " by Joseph Huang" << std::endl;
     
     options["Debug Log File"] = UciOption("", [&] (const UciOption &opt) { console.setLogFile(opt); });
     options["Hash"] = UciOption(64, 1, 1048576, [&] (const UciOption &opt) { 
@@ -165,7 +165,7 @@ void Uci::loop(int argc, char* argv[]) {
 }
 
 bool Uci::cmdUci(std::istringstream &is) {
-    console << "id name Belette " << VERSION << std::endl;
+    console << "id name bchess " << VERSION << std::endl;
     console << "id author Vincent Bab" << std::endl;
 
     console << std::endl;
@@ -405,4 +405,4 @@ void UciEngine::onSearchFinish(const SearchEvent &event) {
 
 
 
-} /* namespace Belette */
+} /* namespace bchess */

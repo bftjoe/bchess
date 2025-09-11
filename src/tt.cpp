@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include "tt.h"
 
-namespace Belette {
+namespace bchess {
 
 // Global Transposition Table
 TranspositionTable tt;
@@ -96,4 +96,4 @@ void TranspositionTable::set(TTEntry *tte, uint64_t hash, int depth, int ply, Bo
     }
 }
 
-} /* namespace Belette */
+} /* namespace bchess */

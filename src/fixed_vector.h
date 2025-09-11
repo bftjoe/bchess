@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <algorithm>
 
-namespace Belette {
+namespace bchess {
 
 template <typename T, int N, typename SizeT = uint32_t> class fixed_vector {
     T elements[N];
@@ -77,5 +77,5 @@ public:
     }
 };
 
-} /* namespace Belette */
+} /* namespace bchess */
 

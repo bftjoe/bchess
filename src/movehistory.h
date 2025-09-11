@@ -5,7 +5,7 @@
 #include "position.h"
 #include "fixed_vector.h"
 
-namespace Belette {
+namespace bchess {
 
 using MoveScore = int32_t;
 
@@ -81,5 +81,5 @@ private:
     }
 };
 
-} /* namespace Belette */
+} /* namespace bchess */
 
