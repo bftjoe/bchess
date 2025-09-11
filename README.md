@@ -1,15 +1,7 @@
-<p align="center"><img src="https://raw.githubusercontent.com/vincentbab/Belette/main/belette.png" width="250" alt="Belette logo"></p>
-
-# Belette
-Another UCI-compatible chess engine written in C++. 
+# bchess
+A UCI-compatible chess engine written in C++. bchess is based on [Belette by Vincent Bab](https://github.com/vincentbab/Belette).
 
 For now it only supports CPUs with AVX2 and BMI2 instructions. Support for other architectures might be added in the future.
-
-See [Release page](https://github.com/vincentbab/Belette/releases) for precompiled binaries
-
-You can play against the engine on lichess: https://lichess.org/@/BabChess-Engine
-<br>
-The Bot is hosted on a machine with a Core i7 4785T. It will accept challenges up to 15min+10s, rated and casual.
 
 ## Compiling
 
@@ -18,7 +10,7 @@ Tested on Windows and Linux with GCC >= 12. Might also work with CLang
 ```sh
 make release
 ```
-Executable will be in `./build/Release/bin/belette[.exe]`
+Executable will be in `./build/Release/bin/bchess[.exe]`
 
 ## UCI Options
 
@@ -29,7 +21,7 @@ Log every input and output of the engine to the specified file
 Specify the hash table size in megabytes
 
 ### Threads
-For now this option doesn't do anything. It's only for compatibility purpose
+For now this option doesn't do anything. It's only for compatibility.
 
 ## Internals
 
@@ -73,11 +65,3 @@ Time: 3455ms
  - Tapered
  - Material
  - PSQT ([PeSTO](https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function))
-
-## Credits
-
-Resources and other engines that inspired me:
- - [Chess Programming Wiki](https://www.chessprogramming.org/)
- - [Gigantua](https://github.com/Gigantua/Gigantua)
- - [Stockfish](https://stockfishchess.org/)
- - [Ethereal](https://github.com/AndyGrant/Ethereal)

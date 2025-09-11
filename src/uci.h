@@ -11,9 +11,9 @@
 #include "uci_option.h"
 #include "engine.h"
 
-#define VERSION "3.1.0-DEV"
+#define VERSION "0.0.1"
 
-namespace Belette {
+namespace bchess {
 
 typedef std::ostream& (*Manipulator) (std::ostream&);
 
@@ -123,5 +123,5 @@ private:
     bool cmdBench(std::istringstream& is);
 };
 
-} /* namespace Belette */
+} /* namespace bchess */
 

@@ -5,7 +5,7 @@
 #include <tuple>
 #include "chess.h"
 
-namespace Belette {
+namespace bchess {
 
 constexpr size_t TT_DEFAULT_SIZE = 1024*1024*16;
 
@@ -105,5 +105,5 @@ private:
 
 extern TranspositionTable tt;
 
-} /* namespace Belette */
+} /* namespace bchess */
 

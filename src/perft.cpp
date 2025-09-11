@@ -5,7 +5,7 @@
 #include "utils.h"
 #include "movepicker.h"
 
-namespace Belette {
+namespace bchess {
 
 /**
  * Perft using the MovePicker (slower)
@@ -137,4 +137,4 @@ void perft(Position &pos, int depth) {
 	console << "Time: " << elapsed << "ms" << std::endl;
 }
 
-} /* namespace Belette */
+} /* namespace bchess */

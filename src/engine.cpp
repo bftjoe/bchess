@@ -6,7 +6,7 @@
 #include "evaluate.h"
 #include "movepicker.h"
 
-namespace Belette {
+namespace bchess {
 
 int Engine::LMRTable[MAX_PLY][MAX_MOVE];
 
@@ -488,4 +488,4 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
     return bestScore;
 }
 
-} /* namespace Belette */
+} /* namespace bchess */

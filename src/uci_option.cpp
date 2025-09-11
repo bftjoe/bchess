@@ -1,6 +1,6 @@
 #include "uci_option.h"
 
-namespace Belette {
+namespace bchess {
 
 UciOption::UciOption(OnUpdate onUpdate_) : type("button"), onUpdate(onUpdate_) { }
 
@@ -57,4 +57,4 @@ UciOption& UciOption::operator=(const std::string& newValue)
     return *this;
 }
 
-} /* namespace Belette */
+} /* namespace bchess */

@@ -3,7 +3,7 @@
 #include <chrono>
 #include <string>
 
-namespace Belette {
+namespace bchess {
 
 using TimeMs = std::chrono::milliseconds::rep;
 
@@ -48,5 +48,5 @@ private:
     Func func;
 };
 
-} /* namespace Belette */
+} /* namespace bchess */
 

@@ -1,8 +1,8 @@
 #pragma once
 
-namespace Belette::Test {
+namespace bchess::Test {
 
 void run();
 
-} /* namespace Belette::Test */
+} /* namespace bchess::Test */
 

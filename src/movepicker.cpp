@@ -1,6 +1,6 @@
 #include "movepicker.h"
 
-namespace Belette {
+namespace bchess {
 
 
-} /* namespace Belette */
+} /* namespace bchess */

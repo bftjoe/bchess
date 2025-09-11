@@ -2,7 +2,7 @@
 
 #include "chess.h"
 
-namespace Belette {
+namespace bchess {
 
 namespace Zobrist {
     extern Bitboard keys[NB_PIECE][NB_SQUARE];
@@ -13,5 +13,5 @@ namespace Zobrist {
     void init();
 }
 
-} /* namespace Belette */
+} /* namespace bchess */
 

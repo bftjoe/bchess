@@ -6,7 +6,7 @@
 #include "uci.h"
 #include "utils.h"
 
-namespace Belette {
+namespace bchess {
 
 std::vector<std::string> BENCH_POSITIONS = {
     // fens from Stormphrax, from alexandria, ultimately from bitgenie
@@ -102,4 +102,4 @@ void bench(int depth) {
     console << engine.nbNodes << " nodes " << engine.nps() << " nps" << std::endl;
 }
 
-} /* namespace Belette  */
+} /* namespace bchess  */

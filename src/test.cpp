@@ -7,7 +7,7 @@
 #include "position.h"
 #include "perft.h"
 
-namespace Belette::Test {
+namespace bchess::Test {
 
 struct TestCase {
     std::string fen;
@@ -62,4 +62,4 @@ void run() {
     
 }
 
-} /* namespace Belette::Test */
+} /* namespace bchess::Test */
