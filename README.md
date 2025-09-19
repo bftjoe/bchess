@@ -5,12 +5,12 @@ For now it only supports CPUs with AVX2 and BMI2 instructions. Support for other
 
 ## Compiling
 
-Tested on Windows and Linux with GCC >= 12. Might also work with CLang
+Tested on Windows and Linux with g++ >= 15 and clang++ >= 20.
 
 ```sh
 make release
 ```
-Executable will be in `./build/Release/bin/bchess[.exe]`
+Executable will be in `./build/bchess-pgo[.exe]`
 
 ## UCI Options
 
@@ -18,7 +18,7 @@ Executable will be in `./build/Release/bin/bchess[.exe]`
 Log every input and output of the engine to the specified file
 
 ### Hash
-Specify the hash table size in megabytes
+ This engine uses a [variable sized hash table](https://github.com/renzibei/fph-table/tree/noseed) which grows in size as the search progresses.
 
 ### Threads
 For now this option doesn't do anything. It's only for compatibility.
@@ -51,7 +51,7 @@ Time: 3455ms
  - SEE pruning
  - Quiescence
 
- ### Move ordering
+ ## Move ordering
   - Hash move (TT Move)
   - MVV-LVA
   - Killer moves
@@ -65,6 +65,7 @@ Time: 3455ms
  - Tapered
  - Material
  - PSQT ([PeSTO](https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function))
+ 
 
 ## Credits
 
