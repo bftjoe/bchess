@@ -1,6 +1,8 @@
-build/*
+build/
 .vscode
 tmp
 *.log
 
 !/**/.gitkeep
+*.profraw
+*.profdata
