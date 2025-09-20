@@ -381,14 +381,12 @@ bool Uci::cmdBench(std::istringstream& is) {
 void UciEngine::onSearchProgress(const SearchEvent &event) {
     console << "info"
         << " depth " << event.depth 
-        << " seldepth " << event.selDepth 
         << " multipv " << 1
         << " score " << Uci::formatScore(event.bestScore)
         << " nodes " << event.nbNodes
         << " nps " << (int)((float)event.nbNodes / std::max<std::common_type_t<int, TimeMs>>(1, event.elapsed) * 1000.0f)
         << " time " << event.elapsed
-        << " hashfull " << event.hashfull
-        << " tbhits " << 0;
+        << " hashfull " << event.hashfull;
 
     if (!event.pv.empty()) 
         console << " pv " << event.pv;

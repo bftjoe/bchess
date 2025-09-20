@@ -41,7 +41,7 @@ Time: 3455ms
  - Iterative deepening
  - Aspiration window
  - Negamax
- - Transpositation Table
+ - Transposition Table
  - Null move pruning (NMP)
  - Late move reduction (LMR)
  - Late move pruning (LMP)
