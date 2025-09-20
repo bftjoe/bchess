@@ -66,7 +66,7 @@ void Engine::idSearch() {
     Score bestScore;
     int depth, searchDepth, completedDepth = 0;
 
-    for (depth = 1; depth < MAX_PLY; depth++) {
+    for ( depth = 1; depth < MAX_PLY; depth += 2 ) {
         Score alpha = -SCORE_INFINITE, beta = SCORE_INFINITE;
         Score delta = 0, score = -SCORE_INFINITE;
 
@@ -225,54 +225,10 @@ Score Engine::pvSearch(Score alpha, Score beta, int depth, int ply, bool cutNode
         node.staticEval = eval = SCORE_NONE;
     }
 
-    // Internal Iterative Reduction (IIR)
-    if (depth >= 4 && ttMove == MOVE_NONE) {
-        depth--;
-    }
-
-    // Reverse futility pruning (RFP)
-    if (!PvNode && !inCheck && depth <= 8
-        && eval - ((improving ? 60 : 120) * depth) >= beta)
-    {
-        return eval;
-    }
-
-    // Razoring
-    if (!PvNode && !inCheck && depth <= 2
-        && eval + (400 * depth) <= alpha)
-    {
-        Score score = qSearch<Me, QNodeType>(alpha, beta, depth, ply);
-        if (score <= alpha)
-            return score;
-    }
-
-    // Null move pruning (NMP)
-    if (!PvNode && !inCheck
-        && pos.previousMove() != MOVE_NULL && pos.hasNonPawnMateriel<Me>() && eval >= beta)
-    {
-        tt.prefetch(pos.getHashAfterNullMove());
-        int R = 4 + depth / 4;
-
-        pos.doNullMove<Me>();
-        Score score = -pvSearch<~Me, NodeType::NonPV>(-beta, -beta+1, depth-R, ply+1, !cutNode);
-        pos.undoNullMove<Me>();
-
-        if (score >= beta) {
-            // TODO: verification search ?
-            return score >= SCORE_MATE_MAX_PLY ? beta : score;
-        }
-    }
-
-    // Check extension
-    if (PvNode && inCheck && depth <= 2) {
-        depth++;
-    }
-
     sd->moveHistory.clearKillers(ply+1);
 
     int nbMoves = 0;
     MovePicker mp(pos, ttMove, &sd->moveHistory, ply);
-    //MovePicker *mp = new (&node.mp) MovePicker(pos, ttMove, &sd->moveHistory, ply);
     PartialMoveList quietMoves;
     
     mp.enumerate<MAIN, Me>([&](Move move, bool& skipQuiets) -> bool {
