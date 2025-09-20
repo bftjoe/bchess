@@ -339,16 +339,6 @@ template<Side Me, NodeType NT>
 Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
     constexpr bool PvNode = (NT != NodeType::NonPV);
 
-    // Check if we should stop according to limits
-    if (sd->shouldStop()) [[unlikely]] {
-        stop();
-    }
-
-    // If search has been aborted (either by the gui or by limits) exit here
-    if (searchAborted()) [[unlikely]] {
-        return -SCORE_INFINITE;
-    }
-
     // Default bestScore for mate detection, if InCheck and there is no move this score will be returned
     Score bestScore = -SCORE_MATE + ply;
     Move bestMove = MOVE_NONE;
@@ -435,7 +425,7 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
         }
 
         return true;
-    }); if (searchAborted()) return bestScore;
+    });
 
     // Update Transposition Table
     Bound ttBound = bestScore >= beta ? BOUND_LOWER : BOUND_UPPER;
