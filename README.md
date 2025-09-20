@@ -10,7 +10,7 @@ Tested on Windows and Linux with g++ >= 15 and clang++ >= 20.
 ```sh
 make release
 ```
-Executable will be in `./build/bchess-pgo[.exe]`
+Executable will be in `./build/bchess-release[.exe]`
 
 ## UCI Options
 
@@ -18,10 +18,10 @@ Executable will be in `./build/bchess-pgo[.exe]`
 Log every input and output of the engine to the specified file
 
 ### Hash
- This engine uses a [variable sized hash table](https://github.com/renzibei/fph-table/tree/noseed) which grows in size as the search progresses.
+Specify the hash table size in megabytes
 
 ### Threads
-For now this option doesn't do anything. It's only for compatibility.
+This option doesn't do anything yet.
 
 ## Internals
 
@@ -42,10 +42,7 @@ Time: 3455ms
  - Aspiration window
  - Negamax
  - Transpositation Table
- - Check extension
  - Null move pruning (NMP)
- - Reverse futility pruning (RFP)
- - Internal iterative reduction (IIR)
  - Late move reduction (LMR)
  - Late move pruning (LMP)
  - SEE pruning
