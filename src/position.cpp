@@ -205,8 +205,6 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
         os << "[Draw by fifty move rule]" << std::endl;
     if (pos.isRepetitionDraw())
         os << "[Draw by 3-fold repetition]" << std::endl;
-    if (pos.isMaterialDraw())
-        os << "[Draw by insufficient material]" << std::endl;
 
     return os;
 }

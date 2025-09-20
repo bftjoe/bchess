@@ -117,7 +117,6 @@ public:
     inline bool isRepetitionDraw() const;
 
     inline bool isFiftyMoveDraw() const { return state->fiftyMoveRule > 99; }
-    inline bool isMaterialDraw() const;
     template<Side Me> inline bool hasNonPawnMateriel() { return getPiecesBB(Me, PAWN, KING) != getPiecesBB(Me); }
 
     template<Side Me> bool isLegal(Move m) const;
@@ -171,28 +170,6 @@ inline Bitboard Position::getAttackers(Square sq, Bitboard occupied) const {
           | (attacks<ROOK>(sq, occupied) & getPiecesTypeBB(ROOK, QUEEN))
           | (attacks<KING>(sq) & getPiecesTypeBB(KING))
     );
-}
-
-inline bool Position::isMaterialDraw() const {
-    if ((getPiecesTypeBB(PAWN) | getPiecesTypeBB(ROOK) | getPiecesTypeBB(QUEEN)) != 0)
-        return false;
-
-    // Not accurate for KBxKB which should be insufficient materiel if bishops are opposite colors, 
-    // but it's too expensive to compute ^^
-    if (popcount(getPiecesBB(WHITE)) > 1 && popcount(getPiecesBB(BLACK)) > 1)
-        return false;
-
-    // Not accurate for KBBxK where the bishops are same color, which is extremly rare
-    if (popcount(getPiecesTypeBB(KNIGHT) | getPiecesTypeBB(BISHOP)) > 1)
-        return false;
-
-    if (!getPiecesTypeBB(BISHOP))
-        return false;
-
-    if (popcount(getPiecesTypeBB(KNIGHT)) < 3)
-        return false;
-
-    return true;
 }
 
 // Check if a position occurs 3 times in the game history
