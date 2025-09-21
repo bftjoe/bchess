@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include "chess.h"
 #include "position.h"
@@ -105,6 +106,9 @@ enum class NodeType {
     NonPV
 };
 
+inline std::atomic_flag aborted = ATOMIC_FLAG_INIT;
+inline std::atomic_flag searching = ATOMIC_FLAG_INIT;
+
 class Engine {
 public:
     static void init();
@@ -118,8 +122,8 @@ public:
     void search(const SearchLimits &limits);
     void stop();
     void waitForSearchFinish();
-    inline bool isSearching() { return searching; }
-    inline bool searchAborted() { return aborted; }
+    inline bool isSearching() { return searching.test(std::memory_order_relaxed); }
+    inline bool searchAborted() { return aborted.test(std::memory_order_relaxed); }
     inline void setHashSize(size_t size) { tt.resize(size); }
     inline void newGame() { tt.clear(); }
 
@@ -132,16 +136,15 @@ private:
 
     std::unique_ptr<SearchData> sd;
     Position rootPosition;
-    bool aborted = true;
-    bool searching = false;
 
     inline void idSearch() { rootPosition.getSideToMove() == WHITE ? idSearch<WHITE>() : idSearch<BLACK>(); }
     template<Side Me> void idSearch();
 
-    template<Side Me, NodeType NT> Score pvSearch(Score alpha, Score beta, int depth, int ply, bool cutNode);
+    template<Side Me, NodeType NT> Score negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode);
 
     template<Side Me, NodeType NT> Score qSearch(Score alpha, Score beta, int depth, int ply);
 };
 
 } /* namespace bchess */
+
 
