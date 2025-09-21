@@ -50,7 +50,6 @@ Uci::Uci()  {
     commands["d"] = &Uci::cmdDebug;
     commands["eval"] = &Uci::cmdEval;
     commands["perft"] = &Uci::cmdPerft;
-    commands["perftmp"] = &Uci::cmdPerftmp;
     commands["test"] = &Uci::cmdTest;
     commands["bench"] = &Uci::cmdBench;
 }
@@ -251,8 +250,6 @@ bool Uci::cmdGo(std::istringstream& is) {
     while (is >> token) {
         if (token == "perft") {
             return cmdPerft(is);
-        } else if (token == "perftmp") {
-            return cmdPerftmp(is);
         } else if (token == "searchmoves") {
             while (is >> token) {
                 Move m = Uci::parseMove(token);
@@ -341,15 +338,6 @@ bool Uci::cmdPerft(std::istringstream& is) {
     is >> depth;
 
     perft(engine.position(), depth);
-
-    return true;
-}
-
-bool Uci::cmdPerftmp(std::istringstream& is) {
-    int depth = 1;
-    is >> depth;
-
-    perftmp(engine.position(), depth);
 
     return true;
 }
