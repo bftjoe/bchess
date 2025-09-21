@@ -1,7 +1,9 @@
 # bchess
 A UCI-compatible chess engine written in C++. 
 
-For now it only supports CPUs with AVX2 and BMI2 instructions. Support for other architectures might be added in the future.
+It only supports CPUs with AVX2 and BMI2 instructions. Support for other architectures might be added in the future.
+
+bchess is based on [Belette by Vincent Bab](https://github.com/vincentbab/Belette)
 
 ## Compiling
 
@@ -62,8 +64,3 @@ Time: 3455ms
  - Tapered
  - Material
  - PSQT ([PeSTO](https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function))
- 
-
-## Credits
-
-bchess is based on [Belette by Vincent Bab](https://github.com/vincentbab/Belette)

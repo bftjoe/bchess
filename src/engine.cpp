@@ -41,11 +41,11 @@ void Engine::waitForSearchFinish() {
 
 // Search entry point
 void Engine::search(const SearchLimits &limits) {
-    if (searching) return;
+    if (searching.test()) return;
 
     sd = std::make_unique<SearchData>(position(), limits);
-    aborted = false;
-    searching = true;
+    aborted.clear(); // false
+    searching.test_and_set(); // true
     
     tt.newSearch();
 
@@ -56,7 +56,7 @@ void Engine::search(const SearchLimits &limits) {
 }
 
 void Engine::stop() {
-    aborted = true;
+    aborted.test_and_set();
 }
 
 // Iterative deepening loop
@@ -64,9 +64,9 @@ template<Side Me>
 void Engine::idSearch() {
     MoveList bestPv;
     Score bestScore;
-    int depth, searchDepth, completedDepth = 0;
+    int depth = 1, searchDepth, completedDepth = 0;
 
-    for ( depth = 1; depth < MAX_PLY; depth += 2 ) {
+    do {
         Score alpha = -SCORE_INFINITE, beta = SCORE_INFINITE;
         Score delta = 0, score = -SCORE_INFINITE;
 
@@ -83,7 +83,7 @@ void Engine::idSearch() {
             if (alpha < -1000) alpha = -SCORE_INFINITE;
             if (beta > 1000) beta = SCORE_INFINITE;
             //std::cout << "  depth=" << searchDepth << " d=" << delta << std::endl;
-            score = pvSearch<Me, NodeType::Root>(alpha, beta, searchDepth, 0, false);
+            score = negaMax<Me, NodeType::Root>(alpha, beta, searchDepth, 0, false);
 
             if (searchAborted()) break;
 
@@ -115,7 +115,9 @@ void Engine::idSearch() {
         if (sd->limits.maxDepth > 0 && depth >= sd->limits.maxDepth) break;
 
         if (sd->shouldStopSoft()) break;
-    }
+
+        depth += 2;
+    } while ( depth < MAX_PLY );
 
     SearchEvent event(depth, bestPv, bestScore, sd->nbNodes, sd->getElapsed(), tt.usage());
 
@@ -126,12 +128,12 @@ void Engine::idSearch() {
 
     onSearchFinish(event);
 
-    searching = false;
+    searching.clear();
 }
 
 // Negamax search
 template<Side Me, NodeType NT>
-Score Engine::pvSearch(Score alpha, Score beta, int depth, int ply, bool cutNode) {
+Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode) {
     constexpr bool PvNode = (NT != NodeType::NonPV);
     constexpr bool RootNode = (NT == NodeType::Root);
     constexpr NodeType QNodeType = PvNode ? NodeType::PV : NodeType::NonPV;
@@ -224,10 +226,6 @@ Score Engine::pvSearch(Score alpha, Score beta, int depth, int ply, bool cutNode
     PartialMoveList quietMoves;
     
     mp.enumerate<MAIN, Me>([&](Move move, bool& skipQuiets) -> bool {
-        // Honor UCI searchmoves
-        if (RootNode && sd->limits.searchMoves.size() > 0 && !sd->limits.searchMoves.contains(move))
-            return true; // continue
-
         nbMoves++;
 
         bool moveIsTactical = pos.isTactical(move);
@@ -268,21 +266,21 @@ Score Engine::pvSearch(Score alpha, Score beta, int depth, int ply, bool cutNode
             R = std::min(depth - 1, std::max(1, R));
 
             // Reduced depth, Zero window
-            score = -pvSearch<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-R, ply+1, true);
+            score = -negaMax<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-R, ply+1, true);
 
             if (score > alpha && R != 1) {
                 // Full depth, Zero window
-                score = -pvSearch<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-1, ply+1, !cutNode);
+                score = -negaMax<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-1, ply+1, !cutNode);
             }
 
         } else if (!PvNode || nbMoves > 1) {
             // Zero window (PVS)
-            score = -pvSearch<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-1, ply+1, !cutNode);
+            score = -negaMax<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-1, ply+1, !cutNode);
         }
 
         if (PvNode && (nbMoves == 1 || (score > alpha && (RootNode || score < beta)))) {
             // Full window (PVS)
-            score = -pvSearch<~Me, NodeType::PV>(-beta, -alpha, depth-1, ply+1, false);
+            score = -negaMax<~Me, NodeType::PV>(-beta, -alpha, depth-1, ply+1, false);
         }
 
         // Undo move
