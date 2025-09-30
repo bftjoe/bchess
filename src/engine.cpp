@@ -85,8 +85,6 @@ void Engine::idSearch() {
             //std::cout << "  depth=" << searchDepth << " d=" << delta << std::endl;
             score = negaMax<Me, NodeType::Root>(alpha, beta, searchDepth, 0, false);
 
-            if (searchAborted()) break;
-
             if (score <= alpha) { // Fail low
                 //std::cout << "  Fail Low: a=" << alpha << " b=" << beta << " score=" << score << std::endl;
                 beta = (alpha + beta) / 2;
@@ -95,7 +93,6 @@ void Engine::idSearch() {
             } else if (score >= beta) { // Fail high
                 //std::cout << "  Fail High: a=" << alpha << " b=" << beta << " score=" << score << std::endl;
                 beta = std::min(score + delta, SCORE_INFINITE);
-                //searchDepth = std::max(std::max(1, depth - 4), searchDepth - 1);
                 searchDepth -= (std::abs(score) < 1000);
             } else {
                 break;
@@ -103,8 +100,6 @@ void Engine::idSearch() {
 
             delta += delta / 2;
         }
-
-        if (depth > 1 && searchAborted()) break;
 
         bestPv = sd->node(0).pv;
         bestScore = score;
@@ -114,7 +109,7 @@ void Engine::idSearch() {
 
         if (sd->limits.maxDepth > 0 && depth >= sd->limits.maxDepth) break;
 
-        if (sd->shouldStopSoft()) break;
+        if (sd->shouldStopSoft() || searchAborted() ) break;
 
         depth += 2;
     } while ( depth < MAX_PLY );
@@ -141,16 +136,6 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
     // Quiescence
     if (depth <= 0) {
         return qSearch<Me, QNodeType>(alpha, beta, depth, ply);
-    }
-
-    // Check if we should stop according to limits
-    if (!RootNode && sd->shouldStop()) [[unlikely]] {
-        stop();
-    }
-
-    // If search has been aborted (either by the gui or by reaching limits) exit here
-    if (!RootNode && searchAborted()) [[unlikely]] {
-        return -SCORE_INFINITE;
     }
 
     // Mate distance pruning
@@ -252,7 +237,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
         Score score;
 
         // Late move reduction (LMR)
-        if (depth >= 2 && nbMoves > 1) {
+        if (depth >= 3 && nbMoves > 3) {
             int R = LMRTable[depth][nbMoves];
 
             R -= PvNode;
@@ -277,8 +262,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
             // Zero window (PVS)
             score = -negaMax<~Me, NodeType::NonPV>(-alpha-1, -alpha, depth-1, ply+1, !cutNode);
         }
-
-        if (PvNode && (nbMoves == 1 || (score > alpha && (RootNode || score < beta)))) {
+        else {
             // Full window (PVS)
             score = -negaMax<~Me, NodeType::PV>(-beta, -alpha, depth-1, ply+1, false);
         }
@@ -333,7 +317,6 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
     Score bestScore = -SCORE_MATE + ply;
     Move bestMove = MOVE_NONE;
     Position &pos = sd->position;
-    //Node& node = sd->node(ply);
 
     if (pos.isFiftyMoveDraw() || pos.isRepetitionDraw()) {
         // "Random" either -1 or 1, avoid blindness to 3-fold repetitions

@@ -8,7 +8,7 @@
 namespace bchess {
 
 /**
- * Perft using the legal move generator (faster)
+ * Perft using the legal move generator
  */
 template<bool Div, Side Me>
 size_t perft(Position &pos, int depth) {
