@@ -8,7 +8,7 @@ ifeq ($(OS), Windows_NT)
 	TARGET_SUFFIX = .exe
 endif
 
-SRCS := $(wildcard $(SRC_DIR)/*.cpp)
+SRCS := bchess.cpp
 
 # idea from Stormphrax
 PGO_EXEC := profile-bchess
