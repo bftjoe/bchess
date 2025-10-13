@@ -2055,9 +2055,6 @@ enum class NodeType {
     NonPV
 };
 
-inline std::atomic_flag aborted = ATOMIC_FLAG_INIT;
-inline std::atomic_flag searching = ATOMIC_FLAG_INIT;
-
 class Engine {
 public:
     static void init();
@@ -2092,6 +2089,10 @@ private:
     template<Side Me, NodeType NT> Score negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode);
 
     template<Side Me, NodeType NT> Score qSearch(Score alpha, Score beta, int depth, int ply);
+
+    
+    std::atomic_flag aborted = ATOMIC_FLAG_INIT;
+    std::atomic_flag searching = ATOMIC_FLAG_INIT;
 };
 
 } /* namespace bchess */
@@ -3414,7 +3415,6 @@ void Engine::search(const SearchLimits &limits) {
     searching.test_and_set(); // true
     
     tt.newSearch();
-
     std::thread th([&] { 
         this->idSearch();
     });
@@ -4009,11 +4009,11 @@ void Uci::loop(int argc, char* argv[]) {
         token.clear();
         parser >> std::skipws >> token;
 
-        bool unknowCommand = true, exit = false;
+        bool unknownCommand = true, exit = false;
         for (auto const& [cmd, handler] : commands) {
             if (cmd != token) continue;
 
-            unknowCommand = false;
+            unknownCommand = false;
 
             if (!(this->*handler)(parser)) {
                 exit = true;
@@ -4022,8 +4022,8 @@ void Uci::loop(int argc, char* argv[]) {
             break;
         }
 
-        if (unknowCommand) {
-            console << "Unknow command '" << token << "'" << std::endl;
+        if (unknownCommand) {
+            console << "unknown command '" << token << "'" << std::endl;
         }
 
         if (exit) {
@@ -4037,7 +4037,7 @@ void Uci::loop(int argc, char* argv[]) {
 
 bool Uci::cmdUci(std::istringstream &is) {
     console << "id name bchess " << VERSION << std::endl;
-    console << "id author Vincent Bab" << std::endl;
+    console << "id author Joseph Huang" << std::endl;
 
     console << std::endl;
 
@@ -4075,7 +4075,7 @@ bool Uci::cmdSetOption(std::istringstream& is) {
     }
 
     if (!options.count(name))
-        console << "Unknow option '" << name << "'" << std::endl;
+        console << "unknown option '" << name << "'" << std::endl;
         
     options[name] = value;
 
