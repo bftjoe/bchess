@@ -1702,7 +1702,6 @@ private:
     size_t nbBuckets;
     uint8_t age;
 
-    //inline uint64_t index(uint64_t hash) { return hash % nbBuckets; }
     inline uint64_t index(uint64_t hash) const { return ((unsigned __int128)hash * (unsigned __int128)nbBuckets) >> 64; }
 };
 
@@ -1977,66 +1976,6 @@ struct Node {
     MoveList pv;
 };
 
-struct SearchData {
-    SearchData(const Position& pos_, const SearchLimits& limits_)
-    : position(pos_), limits(limits_), nbNodes(0) {
-        start();
-    }
-
-    void initAllocatedTime();
-
-    inline TimeMs getElapsed() { return now() - startTime; }
-    inline void start() {
-        startTime = now();
-        initAllocatedTime();
-    }
-    
-    inline bool useTournamentTime() { return !!(limits.timeLeft[WHITE] | limits.timeLeft[WHITE]); }
-    inline bool useFixedTime() { return limits.maxTime > 0; }
-    inline bool useTimeLimit() { return useTournamentTime() || useTimeLimit(); }
-    inline bool useNodeCountLimit() { return limits.maxNodes > 0; }
-
-    inline bool shouldStop() {
-        // Check time every 1024 nodes for performance reason
-        if (nbNodes % 1024 != 0)  return false;
-        
-        TimeMs elapsed = now() - startTime;
-
-        if (useTournamentTime() && elapsed >= hardTimeLimit)
-            return true;
-        if (useFixedTime() && (elapsed > limits.maxTime))
-            return true;
-        if (useNodeCountLimit() && nbNodes >= limits.maxNodes)
-            return true;
-        
-        return false;
-    }
-
-    inline bool shouldStopSoft() {
-        TimeMs elapsed = now() - startTime;
-        
-        if (useTournamentTime() && elapsed >= softTimeLimit)
-            return true;
-
-        return false;
-    }
-
-    inline Node &node(int ply) { assert(ply >= 0 && ply < MAX_PLY); return nodes[ply]; }
-
-    Position position;
-    SearchLimits limits;
-    size_t nbNodes;
-
-    TimeMs startTime;
-    TimeMs lastCheck;
-    TimeMs softTimeLimit;
-    TimeMs hardTimeLimit;
-
-    MoveHistory moveHistory;
-
-    Node nodes[MAX_PLY+1];
-};
-
 struct SearchEvent {
     SearchEvent(int depth_, const MoveList &pv_, Score bestScore_, size_t nbNode_, TimeMs elapsed_, size_t hashfull_): 
         depth(depth_), pv(pv_), bestScore(bestScore_), nbNodes(nbNode_), elapsed(elapsed_), hashfull(hashfull_) { }
@@ -2080,7 +2019,6 @@ protected:
 private:
     static int LMRTable[MAX_PLY][MAX_MOVE];
 
-    std::unique_ptr<SearchData> sd;
     Position rootPosition;
 
     inline void idSearch() { rootPosition.getSideToMove() == WHITE ? idSearch<WHITE>() : idSearch<BLACK>(); }
@@ -2093,6 +2031,58 @@ private:
     
     std::atomic_flag aborted = ATOMIC_FLAG_INIT;
     std::atomic_flag searching = ATOMIC_FLAG_INIT;
+
+    size_t nbNodes;
+    SearchLimits limits;
+
+    TimeMs startTime;
+    TimeMs lastCheck;
+    TimeMs softTimeLimit;
+    TimeMs hardTimeLimit;
+
+    MoveHistory moveHistory;
+
+    Node nodes[MAX_PLY+1];
+
+    
+    void initAllocatedTime(){
+        int64_t moves = limits.movesToGo > 0 ? limits.movesToGo + 5 : 30;
+        Side stm = rootPosition.getSideToMove();
+
+        hardTimeLimit = 0.49 * limits.timeLeft[stm];
+        softTimeLimit = std::min<TimeMs>(hardTimeLimit, limits.timeLeft[stm] / moves + 0.9 * limits.increment[stm]);
+    }
+
+    inline TimeMs getElapsed() { return now() - startTime; }
+    
+    inline bool useTournamentTime() { return !!(limits.timeLeft[WHITE] | limits.timeLeft[WHITE]); }
+    inline bool useFixedTime() { return limits.maxTime > 0; }
+    inline bool useTimeLimit() { return useTournamentTime() || useTimeLimit(); }
+    inline bool useNodeCountLimit() { return limits.maxNodes > 0; }
+
+    inline bool shouldStop() { 
+        TimeMs elapsed = now() - startTime;
+
+        if (useTournamentTime() && elapsed >= hardTimeLimit)
+            return true;
+        if (useFixedTime() && (elapsed > limits.maxTime))
+            return true;
+        if (useNodeCountLimit() && nbNodes >= limits.maxNodes)
+            return true;
+        
+        return false;
+    }
+
+    inline bool shouldStopSoft() {
+        TimeMs elapsed = now() - startTime;
+        
+        if (useTournamentTime() && elapsed >= softTimeLimit)
+            return true;
+
+        return false;
+    }
+
+    inline Node& get_node(int ply) { assert(ply >= 0 && ply < MAX_PLY); return nodes[ply]; }
 };
 
 } /* namespace bchess */
@@ -3394,14 +3384,6 @@ void updatePv(MoveList &pv, Move move, const MoveList &childPv) {
     pv.insert(childPv.begin(), childPv.end());
 }
 
-void SearchData::initAllocatedTime() {
-    int64_t moves = limits.movesToGo > 0 ? limits.movesToGo + 5 : 30;
-    Side stm = position.getSideToMove();
-
-    hardTimeLimit = 0.49 * limits.timeLeft[stm];
-    softTimeLimit = std::min<TimeMs>(hardTimeLimit, limits.timeLeft[stm] / moves + 0.9 * limits.increment[stm]);
-}
-
 void Engine::waitForSearchFinish() {
     searching.wait(true);
 }
@@ -3410,9 +3392,12 @@ void Engine::waitForSearchFinish() {
 void Engine::search(const SearchLimits &limits) {
     if (searching.test()) return;
 
-    sd = std::make_unique<SearchData>(position(), limits);
+    startTime = now();
+    initAllocatedTime();
     aborted.clear(); // false
     searching.test_and_set(); // true
+    nbNodes = 0;
+    this->limits = limits;
     
     tt.newSearch();
     std::thread th([&] { 
@@ -3467,20 +3452,20 @@ void Engine::idSearch() {
             delta += delta / 2;
         }
 
-        bestPv = sd->node(0).pv;
+        bestPv = get_node(0).pv;
         bestScore = score;
         completedDepth = depth;
 
-        onSearchProgress(SearchEvent(depth, bestPv, bestScore, sd->nbNodes, sd->getElapsed(), tt.usage()));
+        onSearchProgress(SearchEvent(depth, bestPv, bestScore, nbNodes, getElapsed(), tt.usage()));
 
-        if (sd->limits.maxDepth > 0 && depth >= sd->limits.maxDepth) break;
+        if (limits.maxDepth > 0 && depth >= limits.maxDepth) break;
 
-        if (sd->shouldStopSoft() || searchAborted() ) break;
+        if (shouldStopSoft() || searchAborted() ) break;
 
         depth += 2;
     } while ( depth < MAX_PLY );
 
-    SearchEvent event(depth, bestPv, bestScore, sd->nbNodes, sd->getElapsed(), tt.usage());
+    SearchEvent event(depth, bestPv, bestScore, nbNodes, getElapsed(), tt.usage());
 
     if (depth != completedDepth) {
         event.depth = completedDepth;
@@ -3513,11 +3498,11 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
         if (alpha >= beta) return alpha;
     }
 
-    Node& node = sd->node(ply);
+    Node& node = get_node(ply);
     Score alphaOrig = alpha;
     Score bestScore = -SCORE_INFINITE;
     Move bestMove = MOVE_NONE;
-    Position &pos = sd->position;
+    Position &pos = rootPosition;
     bool inCheck = pos.inCheck();
     Score eval;
     bool improving = false;
@@ -3528,7 +3513,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
 
     if (pos.isFiftyMoveDraw() || pos.isRepetitionDraw()) {
         // "Random" either -1 or 1, avoid blindness to 3-fold repetitions
-        return 1-(sd->nbNodes & 2);
+        return 1-(nbNodes & 2);
         //return SCORE_DRAW;
     }
 
@@ -3563,18 +3548,18 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
         }
 
         // Improving
-        if (ply >= 2 && sd->node(ply - 2).staticEval != SCORE_NONE)
-            improving = (node.staticEval > sd->node(ply - 2).staticEval);
-        else if (ply >= 4 && sd->node(ply - 4).staticEval != SCORE_NONE)
-            improving = (node.staticEval > sd->node(ply - 4).staticEval);
+        if (ply >= 2 && get_node(ply - 2).staticEval != SCORE_NONE)
+            improving = (node.staticEval > get_node(ply - 2).staticEval);
+        else if (ply >= 4 && get_node(ply - 4).staticEval != SCORE_NONE)
+            improving = (node.staticEval > get_node(ply - 4).staticEval);
     } else {
         node.staticEval = eval = SCORE_NONE;
     }
 
-    sd->moveHistory.clearKillers(ply+1);
+    moveHistory.clearKillers(ply+1);
 
     int nbMoves = 0;
-    MovePicker mp(pos, ttMove, &sd->moveHistory, ply);
+    MovePicker mp(pos, ttMove, &moveHistory, ply);
     PartialMoveList quietMoves;
     
     mp.enumerate<MAIN, Me>([&](Move move, bool& skipQuiets) -> bool {
@@ -3593,10 +3578,10 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
             }
         }
 
-        sd->nbNodes++;
+        nbNodes++;
 
         if (PvNode)
-            sd->node(ply+1).pv.clear();
+            get_node(ply+1).pv.clear();
 
         // Do move
         pos.doMove<Me>(move);
@@ -3604,7 +3589,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
         Score score;
 
         // Late move reduction (LMR)
-        if (depth >= 3 && nbMoves > 3) {
+        if (depth >= 2 && nbMoves > 1) {
             int R = LMRTable[depth][nbMoves];
 
             R -= PvNode;
@@ -3613,7 +3598,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
             R += ttTactical;
             R += 2*cutNode;
             R += !improving;
-            R -= sd->moveHistory.getHistory<Me>(move) / 2048;
+            R -= moveHistory.getHistory<Me>(move) / 2048;
 
             R = std::min(depth - 1, std::max(1, R));
 
@@ -3646,10 +3631,10 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
                 bestMove = move;
                 alpha = bestScore;
                 if (PvNode)
-                    updatePv(node.pv, move, sd->node(ply+1).pv);
+                    updatePv(node.pv, move, get_node(ply+1).pv);
 
                 if (alpha >= beta) {
-                    sd->moveHistory.update<Me>(pos, bestMove, ply, depth, quietMoves);
+                    moveHistory.update<Me>(pos, bestMove, ply, depth, quietMoves);
                     return false; // break
                 }
             }
@@ -3683,11 +3668,11 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
     // Default bestScore for mate detection, if InCheck and there is no move this score will be returned
     Score bestScore = -SCORE_MATE + ply;
     Move bestMove = MOVE_NONE;
-    Position &pos = sd->position;
+    Position &pos = position();
 
     if (pos.isFiftyMoveDraw() || pos.isRepetitionDraw()) {
         // "Random" either -1 or 1, avoid blindness to 3-fold repetitions
-        return 1-(sd->nbNodes & 2);
+        return 1-(nbNodes & 2);
     }
 
     if (ply >= MAX_PLY) [[unlikely]] {
@@ -3742,7 +3727,7 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
         // SEE Pruning
         if (!pos.see(move, 0)) return true; // continue;
         
-        sd->nbNodes++;
+        nbNodes++;
 
         pos.doMove<Me>(move);
         Score score = -qSearch<~Me, NT>(-beta, -alpha, depth-1, ply+1);
