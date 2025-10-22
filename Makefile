@@ -17,11 +17,11 @@ PGO_DATA := bchess.profdata
 PGO_MERGE := llvm-profdata merge -output=$(PGO_DATA) *.profraw
 PGO_USE := -fprofile-instr-use=$(PGO_DATA)
 
-CPPFLAGS := -Wall -std=c++20 -fno-rtti -mbmi -mbmi2 -mpopcnt -msse2 -msse3 -msse4.1 -mavx2 -D_CRT_SECURE_NO_WARNINGS
+CPPFLAGS := -Wall -std=c++23 -fno-rtti -march=native -mtune=native -D_CRT_SECURE_NO_WARNINGS -I./gtl/include
 CPPFLAGS_DEBUG := $(CPPFLAGS) -g -O0 -DDEBUG
 CPPFLAGS_RELEASE := $(CPPFLAGS) -O3 -funroll-loops -finline -fomit-frame-pointer -DNDEBUG
 
-LDFLAGS := -Wall -std=c++20 -fno-rtti -mbmi -mbmi2 -mpopcnt -msse2 -msse3 -msse4.1 -mavx2
+LDFLAGS := -Wall -std=c++23 -fno-rtti -march=native -mtune=native
 LDFLAGS_DEBUG := $(LDFLAGS)
 LDFLAGS_RELEASE := $(LDFLAGS) -static
 

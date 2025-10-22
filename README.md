@@ -5,14 +5,34 @@ It only supports CPUs with AVX2 and BMI2 instructions. Support for other archite
 
 bchess is based on [Belette by Vincent Bab](https://github.com/vincentbab/Belette)
 
+## Clone
+
+The project uses submodules (for example `gtl` or other dependencies):
+
+```powershell
+git clone --recurse-submodules https://github.com/bftjoe/bchess.git
+# if you cloned without --recurse-submodules:
+git submodule update --init --recursive
+```
+
+Then build with CMake (example using the default generator on Windows or Ninja on other platforms):
+
+```powershell
+# out-of-source build directory
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
+# result will be in ./build/Release or ./build depending on generator
+```
+
 ## Compiling
 
-Tested on Windows and Linux with g++ >= 15 and clang++ >= 20.
+Tested on Windows and Linux with g++ >= 15 and clang++ >= 20. Visual studio is also supported via CMake.
 
 ```sh
 make release
 ```
 Executable will be in `./build/bchess-release[.exe]`
+
 
 ## UCI Options
 
@@ -20,7 +40,7 @@ Executable will be in `./build/bchess-release[.exe]`
 Log every input and output of the engine to the specified file
 
 ### Hash
-Specify the hash table size in megabytes
+The hash table is a [parallel hashmap](https://github.com/greg7mdp/parallel-hashmap) and the size is not configurable or resetable (it always grows).
 
 ### Threads
 This option doesn't do anything yet.

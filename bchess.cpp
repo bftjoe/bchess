@@ -6,22 +6,39 @@ Modifications Copyright 2025 Joseph Huang
 
 Based on Belette Copyright 2024 Vincent Bab */
 
-#include <iostream>
-
-#include <map>
-#include <string>
-#include <sstream>
-#include <istream>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <filesystem>
-
-#include <set>
-#include <cassert>
-#include <functional>
-
+#include <algorithm>
+#include <array>
+#include <atomic>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <ctime>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <initializer_list>
+#include <istream>
+#include <map>
+#include <memory>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <tuple>
+#include <vector>
+#include <filesystem>
+#include <cassert>
+#include <cstdlib>
+#include <iostream>
+
+#include <immintrin.h>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+
+#include <gtl/phmap.hpp>
 
 namespace bchess {
 
@@ -122,10 +139,6 @@ private:
 
 #include <atomic>
 #include <memory>
-
-#include <cstdint>
-#include <cassert>
-#include <string>
 
 namespace bchess {
 
@@ -473,12 +486,13 @@ inline Bitboard  operator|(Square s1, Square s2) { return bb(s1) | bb(s2); }
 
 } /* namespace bchess */
 
-#include <string>
 #include <array>
 #include <vector>
 
 #include <immintrin.h>
-#include <cassert>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 namespace bchess {
 
@@ -494,11 +508,21 @@ inline uint64_t pext(uint64_t b, uint64_t m) {
 }
 
 inline int popcount(Bitboard b) {
+#if defined(_MSC_VER)
+    return (int)__popcnt64((unsigned long long)b);
+#else
     return __builtin_popcountll(b);
+#endif
 }
 
 inline Square bitscan(Bitboard b) {
+#if defined(_MSC_VER)
+    unsigned long index;
+    _BitScanForward64(&index, (unsigned long long)b);
+    return Square(index);
+#else
     return Square(__builtin_ctzll(b));
+#endif
     //return Square(_tzcnt_u64(b));
 }
 /*inline Square bitscan_reverse(Bitboard b) {
@@ -1037,11 +1061,6 @@ inline Score evaluate(const Position &pos) {
 };
 
 } /* namespace bchess */
-
-#include <initializer_list>
-#include <cassert>
-#include <cstdint>
-#include <algorithm>
 
 namespace bchess {
 
@@ -1601,18 +1620,15 @@ private:
 
 } /* namespace bchess */
 
-#include <cstdint>
 #include <algorithm>
-
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 #include <tuple>
 
+#define GTL_DISABLE_MIX 1
+#include <gtl/phmap.hpp>
+
 namespace bchess {
-
-constexpr size_t TT_DEFAULT_SIZE = 1024*1024*16;
-
-constexpr int TT_ENTRIES_PER_BUCKET = 3;
 
 enum Bound {
     BOUND_NONE = 0,
@@ -1621,16 +1637,13 @@ enum Bound {
     BOUND_EXACT = BOUND_LOWER | BOUND_UPPER
 };
 
-class TTEntry {
-public:
+struct TTEntry {
     static constexpr uint8_t AGE_MASK   = 0b11111000;
     static constexpr uint8_t PV_MASK    = 0b00000100;
     static constexpr uint8_t BOUND_MASK = 0b00000011;
     static constexpr int AGE_DELTA = 0x8;
     static constexpr int AGE_CYCLE = 0xFF + AGE_DELTA;
 
-    inline bool empty() const { return hash16 == 0; }
-    inline bool hashEquals(uint64_t hash) const { return hash16 == (uint16_t)hash; }
     inline Move move() const { return (Move)move16; }
     inline Score eval() const { return eval16; }
     inline Score score(int ply) const {
@@ -1655,57 +1668,35 @@ public:
 
     inline void refresh(uint8_t age) { ageFlags8 = age | (ageFlags8 & (PV_MASK | BOUND_MASK)); }
 
-    inline bool isBetterToKeep(const TTEntry &other, uint8_t age) const {
-        return this->depth8 - ((AGE_CYCLE + age - this->ageFlags8) & AGE_MASK)
-             > other.depth8 - ((AGE_CYCLE + age - other.ageFlags8) & AGE_MASK);
-    }
-private:
-    friend class TranspositionTable;
-
-    uint16_t hash16;
     Move move16;
     int16_t eval16;
     int16_t score16;
     uint8_t depth8;
     uint8_t ageFlags8;
-}; // 10 Bytes
+}; // 8 Bytes
 
-class TranspositionTable {
-public:
-    using TTResult = std::tuple<bool, TTEntry *>;
+inline gtl::flat_hash_map<uint64_t, TTEntry> tt;
+inline uint8_t TTAge;
 
-    TranspositionTable(size_t defaultSize = TT_DEFAULT_SIZE);
-    ~TranspositionTable();
+inline bool getTT (const Position& p, TTEntry& entry) {
+    if (auto search = tt.find(p.hash() ) ; search != tt.end()) {
+        entry = search->second;
+        return true;
+    }
+    return false;
+}
 
-    void resize(size_t size);
-    void clear();
-    void newSearch();
-
-    TTResult get(uint64_t hash);
-    void set(TTEntry *tte, uint64_t hash, int depth, int ply, Bound bound, Move move, Score eval, Score score, bool pv);
-
-    inline void prefetch(uint64_t hash) const { __builtin_prefetch(&buckets[index(hash)]); }
-
-    size_t usage() const;
-    inline size_t size() const { return nbBuckets; }
-
-private:
-    struct TTBucket {
-        TTEntry entries[TT_ENTRIES_PER_BUCKET];
-        uint16_t padding;
-
-        inline TTEntry *begin() { return &entries[0]; }
-        inline TTEntry *end() { return &entries[TT_ENTRIES_PER_BUCKET]; }
-    }; // 32 Bytes
-
-    TTBucket *buckets;
-    size_t nbBuckets;
-    uint8_t age;
-
-    inline uint64_t index(uint64_t hash) const { return ((unsigned __int128)hash * (unsigned __int128)nbBuckets) >> 64; }
-};
-
-extern TranspositionTable tt;
+inline void setTT (uint64_t hash, int depth, int ply, Bound bound, Move move, Score eval, Score score, bool pv) {
+    auto& ent = tt[hash];
+    if (move != MOVE_NONE)
+        ent.move16 = move;
+    if (bound != BOUND_EXACT && (depth + 2*pv + 2 < ent.depth() ) )
+        return;
+    ent.eval16 = (int16_t)eval;
+    ent.score(score, ply);
+    ent.depth8 = (uint8_t)depth;
+    ent.ageFlags8 = (uint8_t)(TTAge | (pv << 2) | bound);
+}
 
 } /* namespace bchess */
 
@@ -1770,8 +1761,6 @@ bool MovePicker::enumerate(const Handler &handler) {
     
     bool skipQuiets = false;
 
-    tt.prefetch(pos->getHashAfter(ttMove));
-
     // TT Move
     if (pos->isLegal<Me>(ttMove)) {
         CALL_HANDLER(ttMove, skipQuiets);
@@ -1786,8 +1775,6 @@ bool MovePicker::enumerate(const Handler &handler) {
     if (pos->inCheck()) {
         enumerateLegalMoves<Me, ALL_MOVES>(*pos, [&](Move m) {
             if (m == ttMove) return true; // continue;
-
-            tt.prefetch(pos->getHashAfter(m));
 
             ScoredMove newMove = ScoredMove(m, scoreEvasion<Me>(m));
             moves.insert_sorted(newMove, compare);
@@ -1805,9 +1792,6 @@ bool MovePicker::enumerate(const Handler &handler) {
     // Tacticals
     enumerateLegalMoves<Me, TACTICAL_MOVES>(*pos, [&](Move m) {
         if (m == ttMove) return true; // continue;
-        
-        if (moves.size() < 16)
-            tt.prefetch(pos->getHashAfter(m));
 
         ScoredMove newMove = ScoredMove(m, scoreTactical<Me>(m));
         moves.insert_sorted(newMove, compare);
@@ -1830,9 +1814,6 @@ bool MovePicker::enumerate(const Handler &handler) {
     if constexpr(Type == QUIESCENCE) return true;
 
     if (moveHistory != nullptr) [[likely]] {
-        tt.prefetch(pos->getHashAfter(refutations[0]));
-        tt.prefetch(pos->getHashAfter(refutations[1]));
-        tt.prefetch(pos->getHashAfter(refutations[2]));
         
         // Killer 1
         if (refutations[0] != ttMove && !pos->isTactical(refutations[0]) && pos->isLegal<Me>(refutations[0])) {
@@ -1858,9 +1839,6 @@ bool MovePicker::enumerate(const Handler &handler) {
         if (m == ttMove) return true; // continue;
         if (refutations[0] == m || refutations[1] == m || refutations[2] == m) return true; // continue
 
-        if (moves.size() < 48)
-            tt.prefetch(pos->getHashAfter(m));
-
         ScoredMove newMove = ScoredMove(m, scoreQuiet<Me>(m));
         moves.insert_sorted(newMove, compare);
         
@@ -1879,13 +1857,11 @@ bool MovePicker::enumerate(const Handler &handler) {
 
     // Bad tacticals
     for (current = moves.begin(); current != endBadTacticals; current++) {
-        tt.prefetch(pos->getHashAfter(current->move));
         CALL_HANDLER(current->move, skipQuiets);
     }
 
     // Bad quiets
     for (current = beginQuiets; current != endBadQuiets && !skipQuiets; current++) {
-        tt.prefetch(pos->getHashAfter(current->move));
         CALL_HANDLER(current->move, skipQuiets);
     }
 
@@ -1977,15 +1953,14 @@ struct Node {
 };
 
 struct SearchEvent {
-    SearchEvent(int depth_, const MoveList &pv_, Score bestScore_, size_t nbNode_, TimeMs elapsed_, size_t hashfull_): 
-        depth(depth_), pv(pv_), bestScore(bestScore_), nbNodes(nbNode_), elapsed(elapsed_), hashfull(hashfull_) { }
+    SearchEvent(int depth_, const MoveList &pv_, Score bestScore_, size_t nbNode_, TimeMs elapsed_): 
+        depth(depth_), pv(pv_), bestScore(bestScore_), nbNodes(nbNode_), elapsed(elapsed_) { }
 
     int depth;
     const MoveList &pv;
     Score bestScore;
     size_t nbNodes;
     TimeMs elapsed;
-    size_t hashfull;
 };
 
 enum class NodeType {
@@ -2009,8 +1984,6 @@ public:
     void waitForSearchFinish();
     inline bool isSearching() { return searching.test(std::memory_order_relaxed); }
     inline bool searchAborted() { return aborted.test(std::memory_order_relaxed); }
-    inline void setHashSize(size_t size) { tt.resize(size); }
-    inline void newGame() { tt.clear(); }
 
 protected:
     virtual void onSearchProgress(const SearchEvent &event) = 0;
@@ -2284,8 +2257,6 @@ UciOption& UciOption::operator=(const std::string& newValue)
 }
 
 } /* namespace bchess */
-
-#include <iostream>
 
 namespace bchess {
 
@@ -3247,7 +3218,6 @@ template Score evaluate<WHITE>(const Position &pos);
 template Score evaluate<BLACK>(const Position &pos);
 
 } /* namespace bchess */
-#include <iostream>
 
 namespace bchess {
 
@@ -3264,105 +3234,18 @@ std::ostream& operator<<(std::ostream& os, const MoveList& moves) {
 }
 
 } /* namespace bchess*/
+
 #include <cstring>
 #include <stdexcept>
 
 namespace bchess {
 
-// Global Transposition Table
-TranspositionTable tt;
-
-TranspositionTable::TranspositionTable(size_t defaultSize): buckets(nullptr), nbBuckets(0), age(0) {
-    resize(defaultSize);
-}
-
-TranspositionTable::~TranspositionTable(){
-    if (buckets != nullptr)
-        std::free(buckets);
-}
-
-void TranspositionTable::resize(size_t size){
-    if (buckets != nullptr) {
-        std::free(buckets);
-        buckets = nullptr;
-    }
-
-    nbBuckets = size / sizeof(TTBucket);
-
-    if (nbBuckets > 0) {
-        buckets = static_cast<TTBucket *>(std::malloc(sizeof(TTBucket) * nbBuckets));
-        if (!buckets) throw std::runtime_error("failed to allocate memory for transposition table");
-    }
-
-    clear();
-}
-
-void TranspositionTable::clear() {
-    std::memset(buckets, 0, nbBuckets * sizeof(TTBucket));
-    age = 0;
-}
-
-void TranspositionTable::newSearch() {
-    age += TTEntry::AGE_DELTA;
-}
-
-size_t TranspositionTable::usage() const {
-    const size_t sampleSize = 1000;
-    size_t count = 0;
-    
-    for (size_t i = 0; i < sampleSize; i++) {
-        for (size_t j = 0; j < TT_ENTRIES_PER_BUCKET; j++) {
-            const TTEntry &tte = buckets[i].entries[j];
-            count += !tte.empty() && tte.age() == age;
-        }
-    }
-
-    return 1000 * count / (sampleSize * TT_ENTRIES_PER_BUCKET);
-}
-
-std::tuple<bool, TTEntry *> TranspositionTable::get(uint64_t hash) {
-    TTBucket *bucket = &buckets[index(hash)];
-
-    for (TTEntry *entry = bucket->begin(); entry < bucket->end(); entry++) {
-        if (entry->hashEquals(hash) || entry->empty()) {
-            entry->refresh(age);
-
-            return TTResult(!entry->empty(), entry);
-        }
-    }
-
-    TTEntry *toReplace = bucket->begin();
-
-    for (TTEntry *entry = bucket->begin() + 1; entry < bucket->end(); entry++) {
-        if (toReplace->isBetterToKeep(*entry, age)) {
-            toReplace = entry;
-        }
-    }
-
-    return TTResult(false, toReplace);
-}
-
-// Update TTEntry with fresh informations. Logic is greatly inspired from stockfish
-void TranspositionTable::set(TTEntry *tte, uint64_t hash, int depth, int ply, Bound bound, Move move, Score eval, Score score, bool pv) {
-    assert(depth >= 0);
-    assert(tte != nullptr);
-    assert(move != MOVE_NULL);
-
-    if (move != MOVE_NONE || !tte->hashEquals(hash)) {
-        tte->move16 = move;
-    }
-
-    if (bound == BOUND_EXACT || !tte->hashEquals(hash) || (depth + 2*pv + 2 > tte->depth())) {
-        tte->hash16 = (uint16_t)hash;
-        tte->eval16 = (int16_t)eval;
-        tte->score(score, ply);
-        tte->depth8 = (uint8_t)depth;
-        tte->ageFlags8 = (uint8_t)(age | (pv << 2) | bound);
-    }
+inline void newSearch() {
+    TTAge += TTEntry::AGE_DELTA;
 }
 
 } /* namespace bchess */
-#include <iostream>
+
 #include <thread>
 #include <cmath>
 
@@ -3399,7 +3282,7 @@ void Engine::search(const SearchLimits &limits) {
     nbNodes = 0;
     this->limits = limits;
     
-    tt.newSearch();
+    newSearch();
     std::thread th([&] { 
         this->idSearch();
     });
@@ -3456,7 +3339,7 @@ void Engine::idSearch() {
         bestScore = score;
         completedDepth = depth;
 
-        onSearchProgress(SearchEvent(depth, bestPv, bestScore, nbNodes, getElapsed(), tt.usage()));
+        onSearchProgress(SearchEvent(depth, bestPv, bestScore, nbNodes, getElapsed()));
 
         if (limits.maxDepth > 0 && depth >= limits.maxDepth) break;
 
@@ -3465,7 +3348,7 @@ void Engine::idSearch() {
         depth += 2;
     } while ( depth < MAX_PLY );
 
-    SearchEvent event(depth, bestPv, bestScore, nbNodes, getElapsed(), tt.usage());
+    SearchEvent event(depth, bestPv, bestScore, nbNodes, getElapsed());
 
     if (depth != completedDepth) {
         event.depth = completedDepth;
@@ -3522,29 +3405,30 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
     }
 
     // Query Transposition Table
-    auto&&[ttHit, tte] = tt.get(pos.hash());
-    Score ttScore = tte->score(ply);
-    bool ttPv = PvNode || (ttHit && tte->isPv());
-    Move ttMove = ttHit ? tte->move() : MOVE_NONE;
+    TTEntry tte;
+    auto ttHit = getTT(pos, tte);
+    Score ttScore = tte.score(ply);
+    bool ttPv = PvNode || (ttHit && tte.isPv());
+    Move ttMove = ttHit ? tte.move() : MOVE_NONE;
     bool ttTactical = ttHit ? pos.isTactical(ttMove) : false;
 
     // Transposition Table cutoff
-    if (!PvNode && ttHit && tte->depth() >= depth && tte->canCutoff(ttScore, beta)) {
+    if (!PvNode && ttHit && tte.depth() >= depth && tte.canCutoff(ttScore, beta)) {
         return ttScore;
     }
 
     // Static eval
     if (!inCheck) {
         if (ttHit) {
-            node.staticEval = eval = (tte->eval() != SCORE_NONE ? tte->eval() : evaluate<Me>(pos));
+            node.staticEval = eval = (tte.eval() != SCORE_NONE ? tte.eval() : evaluate<Me>(pos));
 
             // Use score instead of eval if available. 
-            if (tte->canCutoff(ttScore, eval)) {
-                eval = tte->score(ply);
+            if (tte.canCutoff(ttScore, eval)) {
+                eval = tte.score(ply);
             }
         } else {
             node.staticEval = eval = evaluate<Me>(pos);
-            tt.set(tte, pos.hash(), 0, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
+            setTT(pos.hash(), 0, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
         }
 
         // Improving
@@ -3655,7 +3539,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
     // Update Transposition Table
     Bound ttBound =         bestScore >= beta         ? BOUND_LOWER : 
                     !PvNode || bestScore <= alphaOrig ? BOUND_UPPER : BOUND_EXACT;
-    tt.set(tte, pos.hash(), depth, ply, ttBound, bestMove, SCORE_NONE, bestScore, ttPv);
+    setTT(pos.hash(), depth, ply, ttBound, bestMove, SCORE_NONE, bestScore, ttPv);
 
     return bestScore;
 }
@@ -3683,28 +3567,29 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
     Score eval = SCORE_NONE;
 
     // Query Transposition Table
-    auto&&[ttHit, tte] = tt.get(pos.hash());
-    bool ttPv = PvNode || (ttHit && tte->isPv());
+    TTEntry tte;
+    auto ttHit = getTT(pos, tte);
+    bool ttPv = PvNode || (ttHit && tte.isPv());
     int ttDepth = inCheck ? 1 : 0; // If we are in check use depth=1 because when we are in check we go through all moves
-    Score ttScore = tte->score(ply);
+    Score ttScore = tte.score(ply);
 
     // Transposition Table cutoff
-    if (!PvNode && ttHit && tte->depth() >= ttDepth && tte->canCutoff(ttScore, beta)) {
+    if (!PvNode && ttHit && tte.depth() >= ttDepth && tte.canCutoff(ttScore, beta)) {
         return ttScore;
     }
 
     // Standing Pat
     if (!inCheck) {
         if (ttHit) {
-            eval = (tte->eval() != SCORE_NONE ? tte->eval() : evaluate<Me>(pos));
+            eval = (tte.eval() != SCORE_NONE ? tte.eval() : evaluate<Me>(pos));
 
             // Use score instead of eval if available. 
-            if (tte->canCutoff(ttScore, beta)) {
-                eval = tte->score(ply);
+            if (tte.canCutoff(ttScore, beta)) {
+                eval = tte.score(ply);
             }
         } else {
             eval = evaluate<Me>(pos);
-            tt.set(tte, pos.hash(), ttDepth, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
+            setTT(pos.hash(), ttDepth, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
         }
 
         if (eval >= beta) {
@@ -3717,7 +3602,7 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
         bestScore = eval;
     }
 
-    Move ttMove = tte->move();
+    Move ttMove = tte.move();
     // If ttMove is quiet we don't want to use it past a certain depth to allow qSearch to stabilize
     bool useTTMove = ttHit && isValidMove(ttMove) && (depth >= -7 || pos.inCheck() || pos.isTactical(ttMove));
     MovePicker mp(pos, useTTMove ? ttMove : MOVE_NONE);
@@ -3753,7 +3638,7 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
 
     // Update Transposition Table
     Bound ttBound = bestScore >= beta ? BOUND_LOWER : BOUND_UPPER;
-    tt.set(tte, pos.hash(), ttDepth, ply, ttBound, bestMove, eval, bestScore, ttPv);
+    setTT(pos.hash(), ttDepth, ply, ttBound, bestMove, eval, bestScore, ttPv);
 
     return bestScore;
 }
@@ -3854,7 +3739,6 @@ inline void bench(int depth) {
         console << "position fen " << fen << std::endl;
         console << "go depth " << depth << std::endl;
 
-        engine.newGame();
         engine.position().setFromFEN(fen);
         engine.search(limits);
         engine.waitForSearchFinish();
@@ -3890,9 +3774,6 @@ Uci::Uci()  {
     console << "bchess " << VERSION << " by Joseph Huang" << std::endl;
     
     options["Debug Log File"] = UciOption("", [&] (const UciOption &opt) { console.setLogFile(opt); });
-    options["Hash"] = UciOption(64, 1, 1048576, [&] (const UciOption &opt) { 
-        engine.setHashSize(int64_t(opt)*1024*1024);
-    });
     options["Threads"] = UciOption(1, 1, 1);
 
     commands["uci"] = &Uci::cmdUci;
@@ -4042,7 +3923,6 @@ bool Uci::cmdIsReady(std::istringstream& is) {
 }
 
 bool Uci::cmdUciNewGame(std::istringstream& is) {
-    engine.newGame();
     return true;
 }
 
@@ -4225,13 +4105,12 @@ bool Uci::cmdBench(std::istringstream& is) {
 
 void UciEngine::onSearchProgress(const SearchEvent &event) {
     console << "info"
-        << " depth " << event.depth 
+        << " depth " << event.depth
         << " multipv " << 1
         << " score " << Uci::formatScore(event.bestScore)
         << " nodes " << event.nbNodes
         << " nps " << (int)((float)event.nbNodes / std::max<std::common_type_t<int, TimeMs>>(1, event.elapsed) * 1000.0f)
-        << " time " << event.elapsed
-        << " hashfull " << event.hashfull;
+        << " time " << event.elapsed;
 
     if (!event.pv.empty()) 
         console << " pv " << event.pv;
@@ -4247,10 +4126,6 @@ void UciEngine::onSearchFinish(const SearchEvent &event) {
 }
 
 } /* namespace bchess */
-#include <map>
-#include <vector>
-#include <string>
-#include <iostream>
 
 namespace bchess::Test {
 
@@ -4308,7 +4183,6 @@ void run() {
 }
 
 } /* namespace bchess::Test */
-#include <iostream>
 
 namespace bchess {
 
