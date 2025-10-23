@@ -601,17 +601,10 @@ inline Bitboard betweenBB(Square from, Square to) {
     return BETWEEN_BB[from][to];
 }
 
-} /* namespace bchess */
-
-#include <cstdint>
-
-namespace bchess {
-
 namespace Zobrist {
     inline Bitboard keys[NB_PIECE][NB_SQUARE];
     inline Bitboard enpassantKeys[NB_FILE+1];
     inline Bitboard castlingKeys[NB_CASTLING_RIGHT];
-    inline Bitboard sideToMoveKey;
 
     inline uint64_t fastrand() {
         static uint64_t seed = 1234567890;
@@ -637,17 +630,11 @@ namespace Zobrist {
             enpassantKeys[i] = fastrand();
         }
         enpassantKeys[NB_FILE] = 0; // used to avoid branching in doMove()
-
-        sideToMoveKey = fastrand();
     }
 }
 
-} /* namespace bchess */
-
 #define STARTPOS_FEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 #define KIWIPETE_FEN "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
-
-namespace bchess {
 
 struct State {
     CastlingRight castlingRights;
@@ -687,9 +674,6 @@ public:
 
     inline void undoMove(Move m) { getSideToMove() == WHITE ? undoMove<WHITE>(m) : undoMove<BLACK>(m); }
     template<Side Me> inline void undoMove(Move m);
-
-    template<Side Me> void doNullMove();
-    template<Side Me> void undoNullMove();
 
     //bool givesCheck(Move m);
 
@@ -742,7 +726,6 @@ public:
     inline uint64_t hash() const { return state->hash; }
     uint64_t computeHash() const;
     inline uint64_t getHashAfter(Move m) const;
-    inline uint64_t getHashAfterNullMove() const { return hash() ^ Zobrist::sideToMoveKey; };
 
     inline Bitboard checkMask() const { return state->checkMask; }
     inline Bitboard pinDiag() const { return state->pinDiag; }
@@ -857,7 +840,6 @@ inline uint64_t Position::getHashAfter(Move m) const {
     const Piece p = getPieceAt(from);
     const Piece capture = getPieceAt(to);
 
-    h ^= Zobrist::sideToMoveKey;
     h ^= Zobrist::keys[p][from] ^ Zobrist::keys[p][to];
     if (capture != NO_PIECE) 
         h ^= Zobrist::keys[capture][to];
@@ -1675,10 +1657,12 @@ struct TTEntry {
     uint8_t ageFlags8;
 }; // 8 Bytes
 
-inline gtl::flat_hash_map<uint64_t, TTEntry> tt;
+inline gtl::flat_hash_map<uint64_t, TTEntry> ttW;
+inline gtl::flat_hash_map<uint64_t, TTEntry> ttB;
 inline uint8_t TTAge;
 
 inline bool getTT (const Position& p, TTEntry& entry) {
+    auto &tt = p.getSideToMove() == WHITE ? ttW : ttB;
     if (auto search = tt.find(p.hash() ) ; search != tt.end()) {
         entry = search->second;
         return true;
@@ -1686,8 +1670,9 @@ inline bool getTT (const Position& p, TTEntry& entry) {
     return false;
 }
 
-inline void setTT (uint64_t hash, int depth, int ply, Bound bound, Move move, Score eval, Score score, bool pv) {
-    auto& ent = tt[hash];
+inline void setTT (const Position& p, int depth, int ply, Bound bound, Move move, Score eval, Score score, bool pv) {
+    auto &tt = p.getSideToMove() == WHITE ? ttW : ttB;
+    auto &ent = tt[p.hash()];
     if (move != MOVE_NONE)
         ent.move16 = move;
     if (bound != BOUND_EXACT && (depth + 2*pv + 2 < ent.depth() ) )
@@ -1697,10 +1682,6 @@ inline void setTT (uint64_t hash, int depth, int ply, Bound bound, Move move, Sc
     ent.depth8 = (uint8_t)depth;
     ent.ageFlags8 = (uint8_t)(TTAge | (pv << 2) | bound);
 }
-
-} /* namespace bchess */
-
-namespace bchess {
 
 constexpr MoveScore PieceThreatenedValue[NB_PIECE_TYPE] = {
     0, 0, 15000, 15000, 25000, 50000, 0
@@ -2848,7 +2829,6 @@ void Position::doMove(Move m) {
     }
 
     sideToMove = ~Me;
-    h ^= Zobrist::sideToMoveKey;
 
     state->hash = h;
     assert(computeHash() == hash());
@@ -2912,45 +2892,6 @@ template void Position::undoMove<BLACK, NORMAL>(Move m);
 template void Position::undoMove<BLACK, PROMOTION>(Move m);
 template void Position::undoMove<BLACK, EN_PASSANT>(Move m);
 template void Position::undoMove<BLACK, CASTLING>(Move m);
-
-template<Side Me> void Position::doNullMove() {
-    assert(!inCheck());
-    assert(getSideToMove() == Me);
-    
-    uint64_t h = state->hash;
-
-    // Reset epSquare (branchless)
-    h ^= Zobrist::enpassantKeys[fileOf(state->epSquare) + NB_FILE*(state->epSquare == SQ_NONE)];
-
-    State *oldState = state++;
-    state->epSquare = SQ_NONE;
-    state->castlingRights = oldState->castlingRights;
-    state->fiftyMoveRule = oldState->fiftyMoveRule + 1;
-    state->halfMoves = oldState->halfMoves + 1;
-    state->capture = NO_PIECE;
-    state->move = MOVE_NULL;
-
-    sideToMove = ~Me;
-    h ^= Zobrist::sideToMoveKey;
-
-    state->hash = h;
-    assert(computeHash() == hash());
-
-    updateThreatenedSquares<~Me>();
-    state->checkers = EmptyBB; // Null move cannot gives check
-    updatePinsAndCheckMask<~Me, false>();
-}
-
-template void Position::doNullMove<WHITE>();
-template void Position::doNullMove<BLACK>();
-
-template<Side Me> void Position::undoNullMove() {
-    state--;
-    sideToMove = Me;
-}
-
-template void Position::undoNullMove<WHITE>();
-template void Position::undoNullMove<BLACK>();
 
 inline void Position::updateBitboards() { 
     sideToMove == WHITE ? updateBitboards<WHITE>() : updateBitboards<BLACK>(); 
@@ -3070,7 +3011,6 @@ uint64_t Position::computeHash() const {
 
     h ^= Zobrist::castlingKeys[getCastlingRights()];
     if (getEpSquare() != SQ_NONE) h ^= Zobrist::enpassantKeys[fileOf(getEpSquare())];
-    if (getSideToMove() == BLACK) h ^= Zobrist::sideToMoveKey;
 
     return h;
 }
@@ -3345,7 +3285,7 @@ void Engine::idSearch() {
 
         if (shouldStopSoft() || searchAborted() ) break;
 
-        depth += 2;
+        depth++;
     } while ( depth < MAX_PLY );
 
     SearchEvent event(depth, bestPv, bestScore, nbNodes, getElapsed());
@@ -3428,7 +3368,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
             }
         } else {
             node.staticEval = eval = evaluate<Me>(pos);
-            setTT(pos.hash(), 0, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
+            setTT(pos, 0, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
         }
 
         // Improving
@@ -3539,7 +3479,7 @@ Score Engine::negaMax(Score alpha, Score beta, int depth, int ply, bool cutNode)
     // Update Transposition Table
     Bound ttBound =         bestScore >= beta         ? BOUND_LOWER : 
                     !PvNode || bestScore <= alphaOrig ? BOUND_UPPER : BOUND_EXACT;
-    setTT(pos.hash(), depth, ply, ttBound, bestMove, SCORE_NONE, bestScore, ttPv);
+    setTT(pos, depth, ply, ttBound, bestMove, SCORE_NONE, bestScore, ttPv);
 
     return bestScore;
 }
@@ -3589,7 +3529,7 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
             }
         } else {
             eval = evaluate<Me>(pos);
-            setTT(pos.hash(), ttDepth, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
+            setTT(pos, ttDepth, ply, BOUND_NONE, MOVE_NONE, eval, SCORE_NONE, ttPv);
         }
 
         if (eval >= beta) {
@@ -3638,7 +3578,7 @@ Score Engine::qSearch(Score alpha, Score beta, int depth, int ply) {
 
     // Update Transposition Table
     Bound ttBound = bestScore >= beta ? BOUND_LOWER : BOUND_UPPER;
-    setTT(pos.hash(), ttDepth, ply, ttBound, bestMove, eval, bestScore, ttPv);
+    setTT(pos, ttDepth, ply, ttBound, bestMove, eval, bestScore, ttPv);
 
     return bestScore;
 }
